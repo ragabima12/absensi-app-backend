@@ -1,0 +1,1 @@
+ALTER TABLE absensi ADD COLUMN tipe VARCHAR(10) DEFAULT 'masuk' NOT NULL; -- Nilai: 'masuk' atau 'pulang'

@@ -1,0 +1,238 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+
+
+model User {
+  id        Int       @id @default(autoincrement())
+  roleId    Int       @map("role_id")
+  role      Role      @relation(fields: [roleId], references: [id])
+  username  String    @unique
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  verificationToken    String?   @map("verification_token")
+  verificationExpires  DateTime? @map("verification_expires")
+  passwordResetTokens PasswordResetToken[]
+  email     String    @unique
+  password  String
+  isActive  Boolean   @default(true) @map("is_active")
+  lastLogin DateTime? @map("last_login")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  siswa     Siswa?
+  admin     Admin?
+
+  @@map("users")
+}
+
+model Jurusan {
+  id          Int      @id @default(autoincrement())
+  nama        String
+  kode        String   @unique
+  deskripsi   String?
+  kelas       Kelas[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("jurusan")
+}
+
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model Kelas {
+  id           Int           @id @default(autoincrement())
+  jurusanId    Int           @map("jurusan_id")
+  jurusan      Jurusan       @relation(fields: [jurusanId], references: [id])
+  nama         String
+  tahunAjaran  String        @map("tahun_ajaran")
+  siswa        Siswa[]
+  kelasLokasi  KelasLokasi[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([nama, tahunAjaran])
+  @@map("kelas")
+}
+
+model Siswa {
+  id           Int            @id @default(autoincrement())
+  userId       Int            @unique @map("user_id")
+  user         User           @relation(fields: [userId], references: [id])
+  kelasId      Int            @map("kelas_id")
+  kelas        Kelas          @relation(fields: [kelasId], references: [id])
+  nis          String?        @unique
+  namaLengkap  String         @map("nama_lengkap")
+  jenisKelamin String         @map("jenis_kelamin") @db.Char(1)
+  tanggalLahir DateTime?      @map("tanggal_lahir") @db.Date
+  alamat       String?
+  nomorTelepon String?        @map("nomor_telepon")
+  faceData     Json?          @map("face_data")
+  absensi      Absensi[]
+  pengajuanIzin PengajuanIzin[]
+  feedback     Feedback[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  @@map("siswa")
+}
+
+model Admin {
+  id           Int            @id @default(autoincrement())
+  userId       Int            @unique @map("user_id")
+  user         User           @relation(fields: [userId], references: [id])
+  namaLengkap  String         @map("nama_lengkap")
+  jabatan      String?
+  pengajuanIzin PengajuanIzin[] @relation("ApprovedBy")
+  feedback     Feedback[]     @relation("ProcessedBy")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  @@map("admin")
+}
+
+model LokasiAbsensi {
+  id         Int           @id @default(autoincrement())
+  nama       String
+  latitude   Decimal       @db.Decimal(10, 8)
+  longitude  Decimal       @db.Decimal(11, 8)
+  radius     Int           // dalam meter
+  isActive   Boolean       @default(true) @map("is_active")
+  kelasLokasi KelasLokasi[]
+  absensi    Absensi[]
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  @@map("lokasi_absensi")
+}
+
+model KelasLokasi {
+  id        Int           @id @default(autoincrement())
+  kelasId   Int           @map("kelas_id")
+  kelas     Kelas         @relation(fields: [kelasId], references: [id])
+  lokasiId  Int           @map("lokasi_id")
+  lokasi    LokasiAbsensi @relation(fields: [lokasiId], references: [id])
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([kelasId, lokasiId])
+  @@map("kelas_lokasi")
+}
+
+model JenisIzin {
+  id               Int            @id @default(autoincrement())
+  nama             String         @unique
+  deskripsi        String?
+  memerlukanBukti  Boolean        @default(false) @map("memerlukan_bukti")
+  pengajuanIzin    PengajuanIzin[]
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  @@map("jenis_izin")
+}
+
+enum StatusAbsensi {
+  hadir
+  telat
+  izin
+  sakit
+  alpa
+}
+
+model Absensi {
+  id          Int           @id @default(autoincrement())
+  siswaId     Int           @map("siswa_id")
+  siswa       Siswa         @relation(fields: [siswaId], references: [id])
+  lokasiId    Int?          @map("lokasi_id")
+  lokasi      LokasiAbsensi? @relation(fields: [lokasiId], references: [id])
+  tanggal     DateTime      @default(now()) @db.Date
+  waktuAbsen  DateTime?     @map("waktu_absen")
+  tipe        String        @default("masuk") // "masuk" atau "pulang"
+  status      StatusAbsensi
+  latitude    Decimal?      @db.Decimal(10, 8)
+  longitude   Decimal?      @db.Decimal(11, 8)
+  fotoWajahPath String?     @map("foto_wajah_path")
+  keterangan  String?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  @@map("absensi")
+  @@index([siswaId, tanggal])
+}
+
+model PengajuanIzin {
+  id              Int       @id @default(autoincrement())
+  siswaId         Int       @map("siswa_id")
+  siswa           Siswa     @relation(fields: [siswaId], references: [id])
+  jenisIzinId     Int       @map("jenis_izin_id")
+  jenisIzin       JenisIzin @relation(fields: [jenisIzinId], references: [id])
+  tanggalMulai    DateTime  @map("tanggal_mulai") @db.Date
+  tanggalSelesai  DateTime  @map("tanggal_selesai") @db.Date
+  alasan          String
+  buktiPath       String?   @map("bukti_path")
+  status          String    @default("pending")
+  approvedBy      Int?      @map("approved_by")
+  admin           Admin?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt      DateTime? @map("approved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("pengajuan_izin")
+  @@index([siswaId])
+}
+
+model Feedback {
+  id           Int       @id @default(autoincrement())
+  siswaId      Int       @map("siswa_id")
+  siswa        Siswa     @relation(fields: [siswaId], references: [id])
+  judul        String
+  isi          String
+  isAnonymous  Boolean   @default(false) @map("is_anonymous")
+  status       String    @default("unread")
+  processedBy  Int?      @map("processed_by")
+  admin        Admin?    @relation("ProcessedBy", fields: [processedBy], references: [id])
+  processedAt  DateTime? @map("processed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("feedback")
+}
+
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String?
+  deskripsi   String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
